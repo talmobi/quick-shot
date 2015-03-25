@@ -1,0 +1,15 @@
+{
+  "name": "quick-shot",
+  "version": "1.0.0",
+  "description": "quick website screenshot grabber with node-webshot",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "hannyajin@github.com",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.12.3",
+    "webshot": "^0.15.4"
+  }
+}
