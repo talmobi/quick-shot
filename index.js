@@ -9,7 +9,12 @@ var app = express();
 app.get('/', function (req, res) {
   var url = Url.parse(req.url, true, true);
   var href = url.query.url;
-  if (href) {
+  // parse urls inside quotes
+  if (href[0] === '"' && href[href.length-1] === '"') {
+    href = href.substring(1, href.length-1);
+  }
+  console.log("href: " + href);
+  if (href && typeof href === 'string') {
     quickshot.get(href, function (err, data) {
       if (err) {
         return res.send("error: " + err.message || err);
@@ -21,20 +26,7 @@ app.get('/', function (req, res) {
   }
 });
 
-// works for hosts only (no slashes)
-// ex: dev.jin.fi
-app.get('/ss/:url', function (req, res) {
-  var url = req.params.url;
-
-  quickshot.get(url, function (err, data) {
-    if (err) {
-      return res.send("error: " + err.message || err);
-    }
-    return res.end(data, 'binary');
-  });
-});
-
-var port = process.env.PORT || 3099;
+var port = process.env.PORT || 30999;
 var server = app.listen(port, function () {
   var h = server.address().address;
   var p = server.address().port;

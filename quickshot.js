@@ -2,12 +2,6 @@ var http = require('http');
 var Url = require('url');
 var webshot = require('webshot');
 
-var opts = {
-  method: 'HEAD',
-  host: "bittysound.jin.fi",
-  path: "/"
-}
-
 var webshot_settings = {
   screenSize: {
     width: 192,
@@ -22,7 +16,10 @@ var webshot_settings = {
 }
 
 var cache = {};
-var limit = 100;
+var cacheList = [];
+var cacheLimit = 100;
+var listenersLimit = 300;
+var cacheTimeoutInterval = 10000; // 10 seconds
 
 String.prototype.startsWith = function (str) {
   return this.indexOf(str) === 0;
@@ -46,12 +43,6 @@ function get (url, callback) {
 
   var url = Url.parse(url, true, true);
 
-  var opts = {
-    method: 'HEAD',
-    host: url.host,
-    path: url.path
-  }
-
   var hostpath = (url.host + (url.path || "/"));
 
   var cash = cache[hostpath];
@@ -61,22 +52,24 @@ function get (url, callback) {
   } else { // url not cached
     if (cash) {
       // add listeners
+      if (cash.listeners.length > listenersLimit) {
+        // dont add over listener capacity
+        return console.log("listener limit reached from: " + hostpath);
+      }
       console.log("adding a pending listener to: " + hostpath);
       return cash.listeners.push(callback);
     } else {
-      cache[hostpath] = {
+      var cash = cache[hostpath] = {
         hostpath: hostpath,
         url: url,
         data: null,
         listeners: [callback]
       };
-      var cash = cache[hostpath];
 
       // run webshot
       console.log("Webshooting: " + hostpath);
-
       var settings = webshot_settings;
-
+      cacheList.push(cash);
       return webshot(hostpath, settings, function (err, renderStream) {
         if (err) {
           // kill the litener callbacks and reset the cache
@@ -104,7 +97,7 @@ function get (url, callback) {
                   val(null, buffer);
               });
             cash.data = buffer;
-            cash.listeners = 0;
+            cash.listeners.length = 0;
           });
 
           // kill the pending callbacks and reset the cache
@@ -114,36 +107,39 @@ function get (url, callback) {
         }
       });
     }
+  }
+}
 
+// clean cache every 10 seconds
+var cacheTimeout = null;
+function cleanCache () {
+  if (cacheTimeout) {
+    clearTimeout(cacheTimeout);
+    cacheTimeout = null;
   }
 
-  console.log("http req for host: " + opts.host + ", path: " + opts.path);
+  // clean cache
+  if (cacheList.length > cacheLimit) {
+    var removeList = cacheList.slice(cacheLimit);
+    for (var i = 0; i < removeList.length; i++) {
+      var cash = removeList[i];
+      if (!cash) continue;
+      if (cash.listeners instanceof Array)
+        cash.listeners.map(function (val, ind, arr) {
+          if (typeof(val) == "function")
+            val("Over capacity");
+        });
+      cache[cash.hostpath] = null;
+    }
+    console.log("%s items removed from cache", removeList.length);
+    cacheList.length = cacheLimit;
+  }
 
-  var req = http.request(opts, function (res) {
-    console.log("STATUS: " + res.statusCode);
-    console.log("HEADERS: " + JSON.stringify(res.headers));
-    res.setEncoding('utf8');
-    var data = "";
-    res.on('data', function (chunk) {
-      console.log("BODY: " + chunk);
-      data += chunk;
-    });
-    res.on('end', function () {
-      callback(null, data);
-    });
-  });
-
-  req.on('error', function (err) {
-    console.log("problem with request: " + err.message);
-    callback(err);
-  });
-
-  req.end();
+  console.log("cacheTimeout rewinded. cache size: [%s/%s]",
+              cacheList.length, cacheLimit);
+  cacheTimeout = setTimeout(cleanCache, cacheTimeoutInterval);
 }
-
-function takeShot (url, callback, opts) {
-  webshot(url, callback, opts || webshot_settings);
-}
+cleanCache();
 
 module.exports = {
   get: get
