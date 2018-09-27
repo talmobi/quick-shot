@@ -6,10 +6,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "hannyajin@github.com",
-  "license": "ISC",
+  "author": "talmobi <talmo.christian@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/talmobi/quick-shot/issues"
+  },
   "dependencies": {
-    "express": "^4.12.3",
-    "webshot": "^0.15.4"
+    "express": "~4.16.3",
+    "webshot": "~0.18.0"
   }
 }
