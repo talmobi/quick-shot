@@ -5,8 +5,8 @@ var Jimp = require( 'jimp' )
 
 var webshotSettings = { // eslint-disable-line
   screenSize: {
-    width: 1920,
-    height: 1080
+    width: 1080,
+    height: Math.floor( 1080 * 9 / 16 )
   },
   quality: 75,
   timeout: 60000,
@@ -101,7 +101,7 @@ function get ( url, callback ) {
               )
 
               image
-              .contain( 192, 108 )
+              .cover( 192, 108, Jimp.HORIZONTAL_ALIGN_CENTER | Jimp.VERTICAL_ALIGN_TOP )
               .getBuffer( Jimp.MIME_JPEG, function ( err, imageBuffer ) {
                 if ( err ) {
                   return handleError( err, cash )
