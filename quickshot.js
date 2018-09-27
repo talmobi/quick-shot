@@ -2,12 +2,13 @@ var http = require('http');
 var Url = require('url');
 var webshot = require('webshot');
 
+var Jimp = require('jimp')
+
 var webshot_settings = {
   screenSize: {
-    width: 192,
-    height: 108
+    width: 1920,
+    height: 1080
   },
-  zoomFactor: .25,
   quality: 75,
   timeout: 60000,
   settings: {
@@ -46,6 +47,9 @@ function get (url, callback) {
   var hostpath = (url.host + (url.path || "/"));
 
   var cash = cache[hostpath];
+
+  if ( cache ) cache.data = null // TODO remove this line
+
   if (cash && cash.data) { // url is cached
     console.log("responding from cache to: " + hostpath);
     return callback(null, cash.data);
@@ -68,6 +72,7 @@ function get (url, callback) {
 
       // run webshot
       console.log("Webshooting: " + hostpath);
+
       var settings = webshot_settings;
       cacheList.push(cash);
       return webshot(hostpath, settings, function (err, renderStream) {
@@ -82,22 +87,41 @@ function get (url, callback) {
             buffer += data.toString('binary');
           });
 
-          // responde to all pending callbacks and update the cache with data
+          // respond to all pending callbacks and update the cache with data
           renderStream.on('end', function () {
-            if (!cash) {
-              return console.log("error on finished webshot - no cash");
-            }
-            console.log(
-                "responding on finished webshot to: %s for %s listeners",
-                cash.hostpath, cash.listeners.length
-                );
-            if (cash.listeners instanceof Array)
-              cash.listeners.map(function (val, ind, arr) {
-                if (typeof(val) == "function")
-                  val(null, buffer);
-              });
-            cash.data = buffer;
-            cash.listeners.length = 0;
+            console.log( 'jimp read' )
+            Jimp.read( Buffer.from( buffer, 'binary' ) )
+            .then( function ( image ) {
+              console.log( 'jimp then' )
+
+              if (!cash) {
+                return console.log("error on finished webshot - no cash");
+              }
+
+              console.log(
+                  "responding on finished webshot to: %s for %s listeners",
+                  cash.hostpath, cash.listeners.length
+                  );
+
+              image
+              .contain( 192, 108 )
+              .getBuffer( Jimp.MIME_JPEG, function ( err, imageBuffer ) {
+                if (cash.listeners instanceof Array) {
+                  cash.listeners.forEach(function (val, ind, arr) {
+                    if (typeof(val) == "function")
+                      val(null, imageBuffer);
+                  });
+                }
+
+                cash.data = imageBuffer;
+                cash.listeners.length = 0;
+              } )
+            } )
+            .catch( function ( err ) {
+              console.log( 'jimp error' )
+
+              handleError( err, cash )
+            } )
           });
 
           // kill the pending callbacks and reset the cache
